@@ -1,0 +1,15 @@
+sudo apt update
+sudo apt install python3-opencv python3-pip libatlas-base-dev
+pip3 install mediapipe numpy
+
+
+scp esp32_pose_gesture_analysis.py pi@<RaspberryPi-IP>:/home/pi/
+
+
+python3 esp32_pose_gesture_analysis.py
+
+
+Agenda für heute:
+Files auf den Raspberry Pi
+Python script für FineTuning mit eigenem Input (Training data)
+Parameter mit Textbox für die Hilfestellung (in Python Script)
