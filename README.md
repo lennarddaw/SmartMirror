@@ -9,7 +9,6 @@ Dieses Projekt verwendet einen ESP32-CAM-Videostream und MediaPipe zur Analyse v
 - Modular aufgebaut für einfache Erweiterbarkeit
 
 ---
-
 ## 🛠 Installation
 
 1. **Repository klonen**:
@@ -35,6 +34,17 @@ Dieses Projekt verwendet einen ESP32-CAM-Videostream und MediaPipe zur Analyse v
     ```
 
 ---
+
+## Eigenes Model bauen
+
+1. unter /detection_models/
+
+2. neue class ...
+def init (immer gleich)
+def calculate_angle (immer gleich)
+def update()
+passe die landmarks an, überlege wie die Bewegung aussieht
+32 landmarks: 
 
 ## Starten
 
