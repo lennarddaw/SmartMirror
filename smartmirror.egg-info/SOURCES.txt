@@ -1,0 +1,6 @@
+README.md
+setup.py
+smartmirror.egg-info/PKG-INFO
+smartmirror.egg-info/SOURCES.txt
+smartmirror.egg-info/dependency_links.txt
+smartmirror.egg-info/top_level.txt

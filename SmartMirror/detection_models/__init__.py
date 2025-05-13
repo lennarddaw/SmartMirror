@@ -1,0 +1,2 @@
+from push_up_model import PushUpModel
+from squat_model import SquatModel
