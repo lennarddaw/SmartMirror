@@ -52,3 +52,13 @@ Passe zuerst die `STREAM_URL` in `main.py` an die IP-Adresse deines ESP32-CAM an
 
 ```python
 STREAM_URL = 'http://<individuell>/stream'
+
+
+Übungsbeispiel:
+
+Obersatz:
+Viktor könnte einen Anspruch auf Zahlung gegen Kurt haben nach §433 2 BGB
+
+Tatbestandmerkmale und Definition:
+Hierzu müsste zunächst ein Verpflichtungsgeschäft als Teil des Kaufvertags §433 2 BGB vorliegen. Unter einem Verpflichtungsgeschäft versteht man, dass der Käufer verpflichtet ist dem Verkäufer den vereinbarten Kaufpreis zu zahlen und die gekaufte Sache abzunehmen.
+Kurt hat dem Viktor zu verstehen gegeben, dass er sich über das Angebot des Viktors freut. Somit bestehen zwei sich deckende Willenserklärungen nach §145 und 
