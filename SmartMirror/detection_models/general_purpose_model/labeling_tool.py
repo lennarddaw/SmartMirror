@@ -160,5 +160,14 @@ class VideoSegmenter:
 
 
 if __name__ == "__main__":
-    segmenter = VideoSegmenter()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Train model using frame-based dataset and sliding windows'
+    )
+    parser.add_argument('--input', type=str, default='',
+                        help='Pfad zum Video Subfolder')
+    args = parser.parse_args()
+
+    segmenter = VideoSegmenter(videos_dir=f"videos/{args.input}", labels_dir=f"labeled_videos/{args.input}")
     segmenter.batch_label_all()

@@ -134,11 +134,11 @@ class DatasetBuilderAll:
     """
     Builds a dataset of features for all frames from all videos in one go.
     """
-    def __init__(self, videos_dir: str = "videos", fps: int = 30):
+    def __init__(self, videos_dir: str = "videos", labels_dir: str = "labels", fps: int = 30):
         self.videos_dir = videos_dir
         self.augmenter = LabelAugmenter(fps)
         self.extractor = FeatureExtractor()
-        self.segmenter = VideoSegmenter()
+        self.segmenter = VideoSegmenter(videos_dir=videos_dir, labels_dir=labels_dir)
 
     def build(self) -> tuple[np.ndarray, np.ndarray]:
         X_all, y_all = [], []
@@ -167,6 +167,16 @@ class DatasetBuilderAll:
 
 
 if __name__ == '__main__':
-    builder = DatasetBuilderAll()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Train model using frame-based dataset and sliding windows'
+    )
+    parser.add_argument('--input', type=str, default='',
+                        help='Pfad zum Video Subfolder')
+    args = parser.parse_args()
+    
+    builder = DatasetBuilderAll(videos_dir=f"videos/{args.input}", labels_dir=f"labeled_videos/{args.input}")
+
     X, y = builder.build()
-    builder.save(X, y)
+    builder.save(X, y, path=f'dataset_{args.input}.npz')

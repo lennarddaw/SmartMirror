@@ -91,12 +91,12 @@ if __name__ == '__main__':
                         help='Pfad zum frame-basierten NPZ-Dataset')
     parser.add_argument('--window', type=int, default=140,
                         help='Fenstergröße in Frames')
-    parser.add_argument('--model', type=str, default='rep_segmenter_tcn.keras',
-                        help='Pfad zum gespeicherten Modell')
+    #parser.add_argument('--model', type=str, default='rep_segmenter',
+    #                    help='Name des gespeicherten Modells')
     args = parser.parse_args()
 
     # 1. Load frames and labels
-    X_frames, y_frames = load_frame_dataset(args.input)
+    X_frames, y_frames = load_frame_dataset(f"dataset_{args.input}.npz")
     print(f'Loaded frame dataset: X={X_frames.shape}, y={y_frames.shape}')
 
     # 2. Build sequences
@@ -104,5 +104,5 @@ if __name__ == '__main__':
     print(f'Created sequences: X_seq={X_seq.shape}, y_seq={y_seq.shape}')
 
     # 3. Train
-    trainer = Trainer(model_path=args.model, window_size=args.window)
+    trainer = Trainer(model_path=f"models/{args.input}.keras", window_size=args.window)
     trainer.train(X_seq, y_seq)
