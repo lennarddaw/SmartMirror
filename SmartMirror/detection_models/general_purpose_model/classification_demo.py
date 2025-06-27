@@ -33,34 +33,54 @@ def load_model(path: str) -> Tuple[tf.keras.Model, List[str]]:
     """
     model = tf.keras.models.load_model(path, compile=False)
     
-    # Load class names
+    # Load class names - try to get proper exercise names
     class_names_path = path.replace('.keras', '_classes.txt')
     class_names = []
     if os.path.exists(class_names_path):
         with open(class_names_path, 'r') as f:
             class_names = [line.strip() for line in f.readlines()]
-    else:
-        # Default class names if file doesn't exist
-        class_names = ['push-ups', 'squats', 'pull-ups', 'dips']
+    
+    # If we only have numeric classes, map them to exercise names
+    if not class_names or all(c.isdigit() for c in class_names):
+        # Default exercise names based on the dataset structure (alphabetical order)
+        default_names = ['dips', 'pull-ups', 'push-ups', 'squats']
+        
+        # Get number of classes from model output shape
+        try:
+            if hasattr(model.output_shape, '__len__') and len(model.output_shape) > 0:
+                if isinstance(model.output_shape[-1], int):
+                    num_classes = model.output_shape[-1]
+                else:
+                    num_classes = 4  # fallback
+            else:
+                num_classes = 4  # fallback
+        except:
+            num_classes = 4  # fallback
+            
+        class_names = default_names[:num_classes]
+        print(f"Using default exercise names: {class_names}")
     
     return model, class_names
 
 
-def compute_sequence_classification(
+def compute_frame_by_frame_classification(
     video_path: str,
     model: tf.keras.Model,
     extractor: FeatureExtractor,
     sequence_length: int = 140
-) -> Tuple[str, List[float], List[np.ndarray]]:
+) -> Tuple[List[int], List[float], List[List[float]]]:
     """
-    1) Read frames from the video.
-    2) Extract feature-vectors (pose angles) for each frame.
-    3) Create sequences of specified length.
-    4) Return the predicted exercise type, confidence scores, and all probabilities.
+    Compute classification for each frame using sliding window approach.
+    
+    Returns:
+        predicted_classes: List of predicted class indices for each frame
+        confidences: List of confidence scores for each frame
+        all_probabilities: List of probability distributions for each frame
     """
     cap = cv2.VideoCapture(video_path)
     features: List[np.ndarray] = []
 
+    # Extract features from all frames
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -72,78 +92,55 @@ def compute_sequence_classification(
         features.append(feat)
     cap.release()
 
-    # If the video was empty or extractor never produced a feature, return default
     if len(features) == 0:
-        return "unknown", [0.0, 0.0, 0.0, 0.0], []
+        return [], [], []
 
-    # Pad or truncate to sequence_length
-    if len(features) < sequence_length:
-        # Pad with zeros if video is too short
-        pad_length = sequence_length - len(features)
-        features.extend([np.zeros_like(features[0])] * pad_length)
-    elif len(features) > sequence_length:
-        # Truncate if video is too long (take middle portion)
-        start_idx = (len(features) - sequence_length) // 2
-        features = features[start_idx:start_idx + sequence_length]
+    predicted_classes = []
+    confidences = []
+    all_probabilities = []
 
-    # Create sequence for prediction
-    sequence = np.stack(features, axis=0)
-    sequence = sequence[None, ...]  # add batch dimension
-    
-    # Get prediction
-    probabilities = model.predict(sequence, verbose=0)
-    predicted_class = np.argmax(probabilities[0])
-    confidence = float(probabilities[0][predicted_class])
+    # Use sliding window approach for frame-by-frame classification
+    for i in range(len(features)):
+        # Create sequence centered on current frame
+        start_idx = max(0, i - sequence_length // 2)
+        end_idx = min(len(features), start_idx + sequence_length)
+        
+        # Extract sequence
+        sequence = features[start_idx:end_idx]
+        
+        # Pad if necessary
+        if len(sequence) < sequence_length:
+            pad_length = sequence_length - len(sequence)
+            sequence.extend([np.zeros_like(sequence[0])] * pad_length)
+        
+        # Prepare for prediction
+        sequence = np.stack(sequence, axis=0)
+        sequence = sequence[None, ...]  # add batch dimension
+        
+        # Get prediction
+        probabilities = model.predict(sequence, verbose=0)
+        predicted_class = np.argmax(probabilities[0])
+        confidence = float(probabilities[0][predicted_class])
+        
+        predicted_classes.append(predicted_class)
+        confidences.append(confidence)
+        all_probabilities.append(probabilities[0].tolist())
 
-    return predicted_class, confidence, probabilities[0].tolist()
-
-
-def plot_classification_results(
-    probabilities: List[float],
-    class_names: List[str],
-    predicted_class: int,
-    confidence: float,
-    output_path: str
-) -> None:
-    """
-    Plot the classification probabilities as a bar chart and save as PNG.
-    """
-    plt.figure(figsize=(10, 6))
-    
-    # Create bar plot
-    bars = plt.bar(class_names, probabilities, color='skyblue', alpha=0.7)
-    
-    # Highlight the predicted class
-    bars[predicted_class].set_color('red')
-    bars[predicted_class].set_alpha(0.8)
-    
-    # Add probability values on bars
-    for i, (class_name, prob) in enumerate(zip(class_names, probabilities)):
-        plt.text(i, prob + 0.01, f'{prob:.3f}', 
-                ha='center', va='bottom', fontweight='bold')
-    
-    plt.title(f'Exercise Classification Results\nPredicted: {class_names[predicted_class]} (Confidence: {confidence:.3f})')
-    plt.ylabel('Probability')
-    plt.ylim(0, 1)
-    plt.xticks(rotation=45)
-    plt.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
+    return predicted_classes, confidences, all_probabilities
 
 
-def overlay_classification(
+def overlay_dynamic_classification(
     input_video: str,
     output_path: str,
-    predicted_class: str,
-    confidence: float,
-    probabilities: List[float],
+    predicted_classes: List[int],
+    confidences: List[float],
+    all_probabilities: List[List[float]],
     class_names: List[str],
     font_scale: float = 1.0,
     thickness: int = 2
 ) -> None:
     """
-    Overlay classification results onto each frame and write to a new video.
+    Overlay dynamic classification results onto each frame and write to a new video.
     """
     cap = cv2.VideoCapture(input_video)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -160,9 +157,21 @@ def overlay_classification(
         if not ret:
             break
         
+        if frame_count < len(predicted_classes):
+            predicted_class = predicted_classes[frame_count]
+            confidence = confidences[frame_count]
+            probabilities = all_probabilities[frame_count]
+            predicted_class_name = class_names[predicted_class]
+        else:
+            # Handle case where we have more frames than predictions
+            predicted_class = predicted_classes[-1] if predicted_classes else 0
+            confidence = confidences[-1] if confidences else 0.0
+            probabilities = all_probabilities[-1] if all_probabilities else [0.0] * len(class_names)
+            predicted_class_name = class_names[predicted_class]
+        
         # Create overlay text
         overlay_text = [
-            f"Exercise: {predicted_class}",
+            f"Exercise: {predicted_class_name}",
             f"Confidence: {confidence:.3f}",
             "",
             "All Probabilities:"
@@ -170,7 +179,7 @@ def overlay_classification(
         
         # Add all class probabilities
         for i, (class_name, prob) in enumerate(zip(class_names, probabilities)):
-            marker = "✓" if class_name == predicted_class else " "
+            marker = "✓" if class_name == predicted_class_name else " "
             overlay_text.append(f"  {marker} {class_name}: {prob:.3f}")
         
         # Draw overlay
@@ -192,7 +201,7 @@ def overlay_classification(
                 font_scale_current = font_scale
                 thickness_current = thickness
             else:  # Individual probabilities
-                if class_name == predicted_class:
+                if class_name == predicted_class_name:
                     color = (0, 255, 0)  # Green for predicted class
                 else:
                     color = (200, 200, 200)  # Gray for others
@@ -212,6 +221,45 @@ def overlay_classification(
     
     cap.release()
     out.release()
+
+
+def plot_dynamic_classification_results(
+    predicted_classes: List[int],
+    confidences: List[float],
+    all_probabilities: List[List[float]],
+    class_names: List[str],
+    output_path: str
+) -> None:
+    """
+    Plot dynamic classification results over time.
+    """
+    if not predicted_classes:
+        return
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    
+    # Plot 1: Predicted class over time
+    frames = range(len(predicted_classes))
+    ax1.plot(frames, predicted_classes, 'b-', linewidth=2, label='Predicted Class')
+    ax1.set_ylabel('Exercise Class')
+    ax1.set_title('Exercise Classification Over Time')
+    ax1.set_yticks(range(len(class_names)))
+    ax1.set_yticklabels(class_names)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    
+    # Plot 2: Confidence over time
+    ax2.plot(frames, confidences, 'r-', linewidth=2, label='Confidence')
+    ax2.set_xlabel('Frame')
+    ax2.set_ylabel('Confidence')
+    ax2.set_title('Classification Confidence Over Time')
+    ax2.set_ylim(0, 1)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
 
 
 def main():
@@ -261,18 +309,14 @@ Examples:
         extractor = FeatureExtractor()
         
         print(f"Processing video: {args.input}")
-        predicted_class_idx, confidence, probabilities = compute_sequence_classification(
+        predicted_classes, confidences, all_probabilities = compute_frame_by_frame_classification(
             args.input, model, extractor, args.sequence_length
         )
         
-        predicted_class = class_names[predicted_class_idx]
         print(f"\nClassification Results:")
-        print(f"  Predicted Exercise: {predicted_class}")
-        print(f"  Confidence: {confidence:.3f}")
-        print(f"  All Probabilities:")
-        for i, (class_name, prob) in enumerate(zip(class_names, probabilities)):
-            marker = "✓" if i == predicted_class_idx else " "
-            print(f"    {marker} {class_name}: {prob:.3f}")
+        for i, (predicted_class, confidence) in enumerate(zip(predicted_classes, confidences)):
+            predicted_class_name = class_names[predicted_class]
+            print(f"  Frame {i}: Predicted Exercise: {predicted_class_name}, Confidence: {confidence:.3f}")
         
         # Generate output filenames
         base_name = os.path.splitext(os.path.basename(args.input))[0]
@@ -281,15 +325,14 @@ Examples:
         
         # Create annotated video
         print(f"\nCreating annotated video: {annotated_path}")
-        overlay_classification(
-            args.input, annotated_path, predicted_class, confidence,
-            probabilities, class_names
+        overlay_dynamic_classification(
+            args.input, annotated_path, predicted_classes, confidences, all_probabilities, class_names
         )
         
         # Create classification plot
         print(f"Creating classification plot: {plot_path}")
-        plot_classification_results(
-            probabilities, class_names, predicted_class_idx, confidence, plot_path
+        plot_dynamic_classification_results(
+            predicted_classes, confidences, all_probabilities, class_names, plot_path
         )
         
         print(f"\nClassification demo completed successfully!")

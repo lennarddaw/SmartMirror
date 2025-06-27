@@ -34,9 +34,29 @@ def load_classification_dataset(path: str = 'classification_dataset.npz') -> Tup
         raise FileNotFoundError(f"Dataset file not found: {path}")
         
     data = np.load(path, allow_pickle=True)
-    X = data['X']  # (num_samples, sequence_length, num_features)
+    X = data['X']  # (num_samples, num_features)
     y = data['y']  # (num_samples,) - class indices
-    class_names = data['class_names'].tolist() if 'class_names' in data else None
+    
+    # Reshape X to add sequence dimension if needed
+    if len(X.shape) == 2:
+        # Add sequence dimension: (num_samples, 1, num_features)
+        X = X.reshape(X.shape[0], 1, X.shape[1])
+        print(f"Reshaped X from {data['X'].shape} to {X.shape}")
+    
+    # Handle class_names - provide defaults if not present
+    if 'class_names' in data:
+        class_names = data['class_names'].tolist()
+    elif 'label_mapping' in data:
+        # Use label_mapping if available
+        label_mapping = data['label_mapping'].item()
+        class_names = list(label_mapping.values())
+        print(f"Using label_mapping for class names: {class_names}")
+    else:
+        # Default class names based on the number of unique classes
+        num_classes = len(np.unique(y))
+        default_names = ['push-ups', 'squats', 'pull-ups', 'dips']
+        class_names = default_names[:num_classes]
+        print(f"Warning: No class_names found in dataset, using defaults: {class_names}")
     
     print(f"Loaded classification dataset: X={X.shape}, y={y.shape}")
     print(f"Number of classes: {len(np.unique(y))}")

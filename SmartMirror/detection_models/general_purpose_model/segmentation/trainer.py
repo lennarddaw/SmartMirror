@@ -83,22 +83,22 @@ class SegmentationTrainer:
     def __init__(self,
                  model_path: str = 'rep_segmenter_tcn.keras',
                  window_size: int = 140,
-                 batch_size: int = 16,
+                 batch_size: int = 24,
                  epochs: int = 10000,
-                 learning_rate: float = 1e-4,
+                 learning_rate: float = 5e-4,
                  validation_split: float = 0.2,
-                 patience: int = 10):
+                 patience: int = 20):
         """
         Initialize the trainer.
         
         Args:
             model_path: Path to save the trained model
             window_size: Input sequence length
-            batch_size: Training batch size
+            batch_size: Training batch size (increased for higher capacity model)
             epochs: Maximum number of training epochs
-            learning_rate: Learning rate for optimizer
+            learning_rate: Learning rate for optimizer (increased for better convergence)
             validation_split: Fraction of data for validation
-            patience: Early stopping patience
+            patience: Early stopping patience (adjusted for faster convergence)
         """
         self.model_path = model_path
         self.window_size = window_size
