@@ -3,8 +3,8 @@
 #include <WebServer.h>
 
 
-const char* ssid = "devolo-108";
-const char* password = "BKAJYQKRJAEVHEFO";
+const char* ssid = "Rasputia";
+const char* password = "12345678";
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -78,10 +78,9 @@ void setup() {
   config.xclk_freq_hz = 20000000; 
   config.pixel_format = PIXFORMAT_JPEG;
 
-  // Kleinere Auflösung für stabile Streams
-  config.frame_size = FRAMESIZE_VGA; // VGA (640x480)
-  config.jpeg_quality = 12;          // (0-63), niedriger = bessere Qualität
-  config.fb_count = 2;               // Erhöht Stabilität des Streams
+  config.frame_size = FRAMESIZE_VGA;
+  config.jpeg_quality = 12;
+  config.fb_count = 2;
 
   // Kamera init
    esp_err_t err = esp_camera_init(&config);

@@ -99,7 +99,7 @@ def detect_swipe_right(landmarks, w, h, buffer, threshold=100):
             return True
     return False
 
-STREAM_URL = 'http://192.168.2.197/stream'
+STREAM_URL = 'http://192.168.10.63/stream'
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5,
